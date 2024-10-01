@@ -96,7 +96,7 @@
 
 ### CoroutineScope
 
-코루틴은 실행 범위 및 생명주기를 관리하기 위해 CoroutineScope의 내부에서 실행되어야 합니다.<br>
+코루틴은 실행 범위 및 생명주기를 관리하기 위해 `CoroutineScope`의 내부에서 실행되어야 합니다.<br>
 androidx.lifecycle은 ViewModel의 생명주기를 따르는 CoroutineScope인 `ViewModelScope`를 제공합니다.<br>
 ```kotlin
 public val ViewModel.viewModelScope: CoroutineScope
@@ -180,7 +180,7 @@ coroutineScope {
 
 ## 3. **코루틴 내부에 필요한 작업 정의하기**
 
-## Coroutine Builder
+### Coroutine Builder
 
 코루틴을 만들고 시작하는 역할을 하는 함수들로, 수행하고자 하는 동작을 람다 함수로 정의할 수 있습니다.<br>
 코틀린에서 제공하는 주요 코루틴 빌더로는 launch, async 등이 있습니다.
