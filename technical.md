@@ -16,11 +16,13 @@
 
 ---
 
+<br>
+<br>
+
+
 # **코틀린 코루틴의 구성 요소와 특징**
 
-## **코루틴이란?**
-
-### 코루틴을 사용하는 이유
+## 코루틴을 사용하는 이유
 
 안드로이드는 UI 작업을 메인 스레드에서만 수행하는 싱글 스레드 패러다임을 채택하고 있습니다.<br>
 이러한 패러다임을 채택한 이유는 UI를 그리는 뷰의 구조적 특성 때문입니다.<br>
@@ -38,7 +40,7 @@
 결과를 기다리지 않고 다른 작업을 수행하다가 기존의 작업이 완료되면 그 결과를 처리하는 비동기 방식을 도입하는 게 중요합니다.<br>
 
 
-### 코루틴의 작동 방식
+## 코루틴의 작동 방식
 
 <img width="414" alt="image" src="https://github.com/user-attachments/assets/d4dd6b58-f0fb-4d41-9428-20669d880f6a">
 
@@ -64,6 +66,10 @@
 - resumeWith() : 실행을 재개하기 위한 메서드
 
 
+<br>
+<br>
+
+
 # **안드로이드에서 코루틴 사용하기**
 
 ### 목표 : 코루틴을 이용해 사진 첨부 과정을 비동기 처리해보자!
@@ -82,14 +88,15 @@
 
 위 기능에 코루틴을 적용한 내용을 관련 개념들과 함께 흐름 순서대로 정리해 보았습니다.
 
+<br>
+<br>
+
+
 ## **1. 생명주기에 따라 코루틴 제어하기**
 
 ### CoroutineScope
 
 코루틴은 실행 범위 및 생명주기를 관리하기 위해 CoroutineScope의 내부에서 실행되어야 합니다.<br>
-현재, 사진 업로드 로직 관련 데이터는 안드로이드 Jetpack AAC ViewModel에서 관리하고 있습니다.<br>
-따라서 메모리 누수를 방지하기 위해 코루틴이 뷰모델 생명주기를 따르도록 해야 합니다.
-
 androidx.lifecycle은 ViewModel의 생명주기를 따르는 CoroutineScope인 `ViewModelScope`를 제공합니다.<br>
 ```kotlin
 public val ViewModel.viewModelScope: CoroutineScope
@@ -99,9 +106,15 @@ public val ViewModel.viewModelScope: CoroutineScope
     }
 ```
 `viewModelScope` 속성으로 접근할 수 있으며, ViewModel이 지워질 때 람다 내부에서 시작된 모든 코루틴을 자동으로 취소합니다.<br>
-현 단계에서 구현하고자 하는 사진 별 네크워크 요청은 ViewModel이 활성화된 경우에만 수행해야 하는 작업이므로 이를 사용해주었습니다.
+이 외에도 액티비티나 프래그먼트 등 안드로이드의 lifeCycleAware 컴포넌트에서 사용할 수 있는 `lifecycleScope`도 제공합니다.<br>
 
-이 외에도 액티비티나 프래그먼트 등 안드로이드의 lifeCycleAware 컴포넌트에서 사용할 수 있는 `lifecycleScope`도 제공합니다.
+### 👉 적용해보기 : 각 사진 마다 launch로 값을 반환하지 않는 Job을 생성해 관리하기
+
+현재, 사진 업로드 관련 로직과 데이터는 안드로이드 Jetpack AAC ViewModel에서 관리하고 있습니다.<br>
+메모리 누수를 방지하기 위해 ViewModel이 활성화된 경우에만 코루틴이 살아있도록 해야하므로, viewModelScope를 사용해 뷰모델 생명주기를 따르도록 해주었습니다.
+
+<br>
+<br>
 
 ## **2. 각 사진마다 독립적인 코루틴 만들기**
 
@@ -144,6 +157,27 @@ coroutineScope {
 - **자식에서 취소가 발생해도 부모는 끝까지 관리**: 자식 코루틴이 취소되면, 그 코루틴이 속한 부모 코루틴도 취소되지만, 부모 코루틴은 필요한 경우 자식 코루틴의 모든 정리 작업을 수행하고 나서 종료될 수 있습니다.
 - **협력적인 취소**: 코루틴은 취소 가능 상태일 때 스스로 취소를 협력적으로 처리하며, 부모 코루틴이 자식에게 취소 신호를 보낼 수 있습니다. 자식 코루틴이 취소될 때 `finally` 블록이나 `withContext(NonCancellable)` 같은 방식으로 정리 작업을 수행할 수 있습니다.
 
+### 👉 적용해보기 : 각 사진 마다 값을 반환하지 않는 Job을 생성해 관리하자
+
+```kotlin
+    fun fetchPhotosUrlsByUris(context: Context) {
+        pendingPhotos.getValue()?.forEach { photo ->
+            val job = createPhotoUploadJob(context, photo)
+            job.invokeOnCompletion { _ ->
+                photoJobs.remove(photo.uri.toString())
+            }
+            photoJobs[photo.uri.toString()] = job
+        }
+    }
+```
+
+- `photoJobs`라는 `Map`에 `photo.uri`를 Key로, 생성한 `job`을 Value로 저장해 작업 상태를 관리합니다.
+- `invokeOnCompletion`을 사용하여 `job`이 완료되면(성공/실패 여부와 관계없이) 해당 `photo.uri`에 해당하는 `job`을 `photoJobs`에서 제거합니다.
+
+<br>
+<br>
+
+
 ## 3. **코루틴 내부에 필요한 작업 정의하기**
 
 ## Coroutine Builder
@@ -181,20 +215,7 @@ fun <T> CoroutineScope.async(
 
 위의 두 빌더로 만들어진 코루틴은 기본적으로 즉시 실행됩니다. (`CoroutineStart.DEFAULT`)
 
-```kotlin
-    fun fetchPhotosUrlsByUris(context: Context) {
-        pendingPhotos.getValue()?.forEach { photo ->
-            val job = createPhotoUploadJob(context, photo)
-            job.invokeOnCompletion { _ ->
-                photoJobs.remove(photo.uri.toString())
-            }
-            photoJobs[photo.uri.toString()] = job
-        }
-    }
-```
-
-- `photoJobs`라는 `Map`에 `photo.uri`를 Key로, 생성한 `job`을 Value로 저장해 작업 상태를 관리합니다.
-- `invokeOnCompletion`을 사용하여 `job`이 완료되면(성공/실패 여부와 관계없이) 해당 `photo.uri`에 해당하는 `job`을 `photoJobs`에서 제거합니다.
+### 👉 적용해보기 : launch 내부에 업로드 로직을 정의하자
 
 ```kotlin
     private fun createPhotoUploadJob(
@@ -217,6 +238,9 @@ fun <T> CoroutineScope.async(
 - `imageRepository.convertImageFileToUrl`은 네트워크 통신을 수행하여 사진 파일을 URL로 변환하고, 성공 시 `updatePhotoWithUrl`로 변환된 URL을 저장합니다.
 - 실패 시, `_errorMessage`에 에러 메시지를 게시합니다.
 
+<br>
+<br>
+
 ## **4. 스레드 설정하기**
 
 ### Dispatcher
@@ -226,20 +250,20 @@ fun <T> CoroutineScope.async(
 주요 Dispatcher는 다음과 같습니다:
 
 1. **`Dispatchers.Main`**:
-    - **UI 스레드**에서 코루틴을 실행합니다.
+    - **UI 스레드**에서 코루틴을 실행합니다.<br>
     안드로이드의 경우 UI 업데이트는 항상 Main 스레드에서만 가능하므로, UI 관련 작업은 이 Dispatcher에서 실행해야 합니다.
 2. **`Dispatchers.IO`**:
-    - I/O 작업 등 블로킹 작업에 최적화된 스레드 풀에서 코루틴을 실행합니다.
-    ex) 파일 입출력, 네트워크 요청, 데이터베이스 작업 등
+    - I/O 작업 등 블로킹 작업에 최적화된 스레드 풀에서 코루틴을 실행합니다.<br>
+    ex) 파일 입출력, 네트워크 요청, 데이터베이스 작업 등<br>
     - 많은 스레드를 이용해서 비동기 작업을 병렬로 수행할 수 있습니다.
 3. **`Dispatchers.Default`**:
-    - CPU 집약적인 작업을 처리할 때 사용합니다. ex) 복잡한 알고리즘, 데이터 처리 작업
+    - CPU 집약적인 작업을 처리할 때 사용합니다. ex) 복잡한 알고리즘, 데이터 처리 작업<br>
     `IO`와는 달리 계산량이 많은 작업이나 데이터를 처리할 때 사용하며 적절한 스레드 수를 유지하면서 CPU 성능을 최적화합니다.
 4. **`Dispatchers.Unconfined`**:
-    - 특정 스레드에 구애받지 않아 어떤 스레드로 옮겨갈지 보장되지 않습니다.
+    - 특정 스레드에 구애받지 않아 어떤 스레드로 옮겨갈지 보장되지 않습니다.<br>
     - 일반적으로는 잘 사용하지 않으며 테스트 용도나 특수한 상황에서 사용됩니다.
 
-### 코루틴 지원을 위한 설정
+### 👉 적용해보기 : suspend 키워드로 ApiService 메서드를 IO 스레드에서 처리하자
 
 메서드에 suspend 키워드만 추가하면 Retrofit2가 내부적으로 코루틴을 통해 API 호출을 비동기로 수행합니다.<br>
 이미지 전송을 위한 ImageApiService 코드는 아래와 같습니다.
