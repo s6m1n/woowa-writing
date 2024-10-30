@@ -4,15 +4,16 @@
 #### 코루틴을 사용하는 이유
 #### 코루틴의 동작 방식
 ## 안드로이드에서 코루틴 사용하기
-### 목표 : 코루틴을 이용해 사진 첨부 과정을 비동기 처리해보자
+### 목표 : 코루틴을 이용해 사진 첨부 과정을 비동기 처리해 보자
 ### 1. 생명주기에 따라 코루틴 제어하기
 #### CoroutineScope
-### 2. 각 사진마다 독립적인 코루틴 만들기
+### 2. 사진마다 독립적인 코루틴 만들기
 #### 구조화된 동시성
 ### 3. 코루틴 내부에 필요한 작업 정의하기
 #### Coroutine Builder
 ### 4. 스레드 설정하기
 #### Dispatcher
+### 전파되지 않는 CancellationException (+ 트러블 슈팅)
 
 ---
 
@@ -72,7 +73,7 @@
 
 # **안드로이드에서 코루틴 사용하기**
 
-### 목표 : 코루틴을 이용해 사진 첨부 과정을 비동기 처리해보자!
+### 목표 : 코루틴을 이용해 사진 첨부 과정을 비동기 처리해 보자!
 
 스타카토 생성/수정 화면에는 갤러리에서 사진 여러 장을 선택해 첨부하는 기능이 있습니다.<br>
 해당 기능의 요구사항 및 실행 흐름은 아래와 같습니다.
@@ -111,17 +112,17 @@ public val ViewModel.viewModelScope: CoroutineScope
 ### 👉 적용해보기 : 각 사진 마다 launch로 값을 반환하지 않는 Job을 생성해 관리하기
 
 현재, 사진 업로드 관련 로직과 데이터는 안드로이드 Jetpack AAC ViewModel에서 관리하고 있습니다.<br>
-메모리 누수를 방지하기 위해 ViewModel이 활성화된 경우에만 코루틴이 살아있도록 해야하므로, viewModelScope를 사용해 뷰모델 생명주기를 따르도록 해주었습니다.
+메모리 누수를 방지하기 위해 ViewModel이 활성화된 경우에만 코루틴이 살아있도록 해야 하므로, viewModelScope를 사용해 뷰모델 생명주기를 따르도록 해주었습니다.
 
 <br>
 <br>
 
-## **2. 각 사진마다 독립적인 코루틴 만들기**
+## **2. 사진마다 독립적인 코루틴 만들기**
 
 ### 구조화된 동시성
 
 코루틴은 ‘부모 코루틴’이 ‘자식 코루틴’의 실행을 관리하고 제어하는 계층 구조를 따릅니다.<br>
-이를 코루틴의 **구조화된 동시성**이라고 하며, 이러한 특징 덕분에 코루틴들 간의 실행 흐름을 쉽게 관리하고 예외 및 취소 동작을 일관되게 처리할 수 있습니다.
+이를 코루틴의 **구조화된 동시성**이라고 하며, 이러한 특징 덕분에 코루틴 간의 실행 흐름을 쉽게 관리하고 예외 및 취소 동작을 일관되게 처리할 수 있습니다.
 
 **1. 실행 관리**
 
@@ -226,17 +227,19 @@ fun <T> CoroutineScope.async(
         imageRepository.convertImageFileToUrl(multiPartBody)
             .onSuccess {
                 updatePhotoWithUrl(photo, it.imageUrl)
+            }.onException { e, message ->
+                val updatedPhoto = photo.setFailState()
+                _currentPhotos.value = currentPhotos.value?.updateOrAppendPhoto(updatedPhoto)
+                if (this.isActive) handleException(e, message)
             }
-            .onException { _, message ->
-                _errorMessage.postValue(message)
-            }
+            .onServerError(::handleServerError)
     }
 ```
 
 - `viewModelScope`에서  `launch`로 코루틴을 시작합니다.
 - 사진 파일을 `convertExcretaFile`로 변환하고, 이를 서버로 업로드하여 URL로 변환하는 작업을 실행합니다.
 - `imageRepository.convertImageFileToUrl`은 네트워크 통신을 수행하여 사진 파일을 URL로 변환하고, 성공 시 `updatePhotoWithUrl`로 변환된 URL을 저장합니다.
-- 실패 시, `_errorMessage`에 에러 메시지를 게시합니다.
+- Exception 발생 시, handleException 메서드를 실행합니다.
 
 <br>
 <br>
@@ -279,3 +282,16 @@ interface ImageApiService {
 ```
 
 `viewModelScope.launch`는 UI 스레드를 이용하지만, 위 `suspend fun postImage()`의 경우 Retrofit2가 내부적으로 IO 스레드를 사용하도록 처리하고 있기 때문에 별도로 Dispacher를 설정해 줄 필요는 없었습니다.
+
+<br>
+<br>
+
+## 전파되지 않는 CancellationException (+ 트러블 슈팅)
+
+`CancellationException`은 코루틴의 취소에 사용되는 특별한 예외로, **부모 코루틴에게 전파되지 않는다**는 특징이 있습니다.<br>
+코루틴 Job이 cancel을 통해 취소되면 상태가 `Cancelling`으로 바뀌고 중단 가능 지점에서 `JobCancellationException` 예외를 던집니다. (`JobCancellationException`은 CancellationException의 서브 클래스 입니다.)<br>
+⚠️ 이 말인 즉슨, 코루틴 내부에 중단 가능 지점이 없다면 cancel을 호출해도 취소되지 않습다는 것입니다. <br>
+
+`imageRepository.convertImageFileToUrl(multiPartBody)`로 네트워크 요청을 보내고 응답을 기다리는 과정 도중에 리스트에서 사진을 삭제하면 코루틴이 취소되며 `JobCancellationException`예외가 발생했습니다.<br>
+해당 예외는 ApiResponseHandler에서 잡혀 **네트워크 불안정** Exception으로 잘못 간주 되었습니다.<br>
+따라서 `if (this.isActive) handleException(e, message)`처럼 isActive 여부를 검사함으로서 Job 취소 예외를 무시할 수 있었습니다.
