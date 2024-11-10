@@ -57,8 +57,13 @@
 
 <img width="770" alt="image" src="https://github.com/user-attachments/assets/e420ec4e-abca-4bf4-9c7a-83fbfcaadf89">
 
-위 사진처럼 메인 스레드가 블록되어 업데이트가 적절한 타이밍에 일어나지 못한다면 프레임 드랍이 생기며 앱이 사용자와 매끄럽게 상호작용할 수 없어집니다.<br>
-또한 blocking 상태가 5초 이상 유지되면 아래처럼 ANR(Application Not Responding) 오류가 발생하며 앱이 종료됩니다.<br>
+위 사진처럼 메인 스레드가 블록되어 업데이트가 적절한 타이밍에 일어나지 못한다면 프레임 드랍이 생기며 앱이 사용자와 매끄럽게 상호작용할 수 없어집니다.  
+<br>
+또한 blocking 상태가 5초 이상 유지되면 아래처럼 ANR(Application Not Responding) 오류가 발생하며 앱이 종료됩니다.  
+<br>
+<img width="400" alt="image" src="https://github.com/user-attachments/assets/ab112b75-2dd3-4995-a9e4-16eb77f70dc4">
+
+<br>
 
 이런 상황을 막기 위해선 네트워크 요청이나 파일 I/O 처럼 **오랜 시간이 걸리는 작업을 비동기 방식으로 처리**하는게 중요합니다.  
 비동기 방식이란, **작업을 시작한 후 결과를 기다리지 않고 다른 작업을 수행**하다가, **기존의 작업이 완료되면 그 결과를 처리**하는 방식입니다.  
