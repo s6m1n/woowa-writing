@@ -313,7 +313,7 @@ interface ImageApiService {
 
 `CancellationException`은 코루틴의 취소에 사용되는 특별한 예외로, **부모 코루틴에게 전파되지 않는다**는 특징이 있습니다.<br>
 코루틴 Job이 cancel을 통해 취소되면 상태가 `Cancelling`으로 바뀌고 중단 가능 지점에서 `JobCancellationException` 예외를 던집니다. (`JobCancellationException`은 CancellationException의 서브 클래스 입니다.)<br>
-⚠️ 이 말인 즉슨, 코루틴 내부에 중단 가능 지점이 없다면 cancel을 호출해도 취소되지 않습다는 것입니다. <br>
+이 말인 즉슨, 코루틴 내부에 중단 가능 지점이 없다면 cancel을 호출해도 취소되지 않는다는 것입니다. <br>
 
 `imageRepository.convertImageFileToUrl(multiPartBody)`로 네트워크 요청을 보내고 응답을 기다리는 과정 도중에 리스트에서 사진을 삭제하면 코루틴이 취소되며 `JobCancellationException`예외가 발생했습니다.<br>
 해당 예외는 ApiResponseHandler에서 잡혀 **네트워크 불안정** Exception으로 잘못 간주 되었습니다.<br>
