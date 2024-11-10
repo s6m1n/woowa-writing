@@ -332,6 +332,9 @@ interface ImageApiService {
 
 따라서 `if (this.isActive) handleException(e, message)`처럼 isActive 여부를 검사함으로서 Job 취소 예외를 무시할 수 있었습니다.
 
+<br>
+<br>
+
 ## **마무리**
 
 지금까지 코루틴의 구성 요소와 특징, 사용 이유, 동작 방식에 대해 간단히 알아보고
