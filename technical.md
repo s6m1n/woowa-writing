@@ -35,6 +35,7 @@
 #### 2-4. 스레드 설정하기
 ##### Dispatcher
 #### 2-5. 전파되지 않는 CancellationException (+ 트러블 슈팅)
+#### 마무리
 
 
 ---
@@ -317,3 +318,14 @@ interface ImageApiService {
 `imageRepository.convertImageFileToUrl(multiPartBody)`로 네트워크 요청을 보내고 응답을 기다리는 과정 도중에 리스트에서 사진을 삭제하면 코루틴이 취소되며 `JobCancellationException`예외가 발생했습니다.<br>
 해당 예외는 ApiResponseHandler에서 잡혀 **네트워크 불안정** Exception으로 잘못 간주 되었습니다.<br>
 따라서 `if (this.isActive) handleException(e, message)`처럼 isActive 여부를 검사함으로서 Job 취소 예외를 무시할 수 있었습니다.
+
+## **마무리**
+
+지금까지 코루틴의 구성 요소와 특징, 사용 이유, 동작 방식에 대해 간단히 알아보고
+스타카토 프로젝트에서 코루틴을 어떻게 적용했는지 살펴보았어요.<br>
+여기까지 잘 따라오셨다면 코루틴이 무엇이고 왜, 어떻게 사용해야 하는지 어느 정도 감이 오실 거예요.
+
+지금까지 제 긴 글을 읽어주셔서 감사합니다!<br>
+만약 이 글을 읽고 스타카토 서비스에 관심이 생겼다면 구글 플레이스토어에서 [스타카토](https://play.google.com/store/apps/details?id=com.on.staccato&pcampaignid=web_share)를 찾아 주세요!😉
+
+앞으로 여러분의 앞날에 무한한 코루틴의 축복이 함께하길, 제 자리에서 늘 비동기로 빌고 있겠습니다...
